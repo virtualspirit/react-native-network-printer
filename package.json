@@ -2,7 +2,6 @@
   "name": "@virtualspirit/react-native-network-printer",
   "version": "0.1.0",
   "description": "React Native Network Printer Liblary",
-  "private": true,
   "main": "./src/index.ts",
   "scripts": {
     "test": "jest",
