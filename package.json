@@ -1,5 +1,5 @@
 {
-  "name": "react-native-network-printer",
+  "name": "@virtualspirit/react-native-network-printer",
   "version": "0.1.0",
   "description": "React Native Network Printer Liblary",
   "private": true,
@@ -18,16 +18,16 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/RZulfikri/react-native-network-printer.git"
+    "url": "git+https://github.com/virtualspirit/react-native-network-printer"
   },
   "author": "Rahmat Zulfikri <me@rahmatzulfikri.xyz> (https://github.com/RZulfikri)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/RZulfikri/react-native-network-printer/issues"
+    "url": "https://github.com/virtualspirit/react-native-network-printer/issues"
   },
-  "homepage": "https://github.com/RZulfikri/react-native-network-printer#readme",
+  "homepage": "https://github.com/virtualspirit/react-native-network-printer#readme",
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
+    "@virtualspirit:registry": "https://npm.pkg.github.com"
   },
   "devDependencies": {
     "@commitlint/config-conventional": "^17.0.2",
