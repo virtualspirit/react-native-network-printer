@@ -1,12 +1,22 @@
+//
+//  NetworkPrinter.h
+//
+//  Created by Rahmat Zulfikri on 08/10/24.
+//
 
-#ifdef RCT_NEW_ARCH_ENABLED
-#import "RNNetworkPrinterSpec.h"
-
-@interface NetworkPrinter : NSObject <NativeNetworkPrinterSpec>
-#else
+#import <Foundation/Foundation.h>
 #import <React/RCTBridgeModule.h>
+#import <React/RCTEventEmitter.h>
+#import "POSPrinterSDK.h"
+#import "PTable.h"
 
-@interface NetworkPrinter : NSObject <RCTBridgeModule>
-#endif
+@interface NetworkPrinter : RCTEventEmitter <POSWIFIManagerDelegate> {
+  POSWIFIManager *_networkManager;
+  NSMutableData *dataM;
+  
+  BOOL isPrintWithHost;
+  RCTPromiseResolveBlock printResolver;
+  RCTPromiseRejectBlock printRejector;
+}
 
 @end
