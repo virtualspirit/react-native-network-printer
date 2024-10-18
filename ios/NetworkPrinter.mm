@@ -12,6 +12,9 @@ typedef NS_ENUM(NSInteger, NetworkPrinterCommand) {
   ALIGN_LEFT = 3,
   ALIGN_CENTER = 4,
   ALIGN_RIGHT = 5,
+  TABLE_ALIGN_ALL_LEFT = 6,
+  TABLE_ALIGN_ALL_RIGHT = 7,
+  TABLE_ALIGN_FIRST_LEFT = 8,
 };
 
 NSString * EVENT_NAME = @"NetworkPrinteEvent";
@@ -124,19 +127,30 @@ RCT_EXPORT_METHOD(addNewLine:(nonnull NSNumber *)count) {
 
 RCT_EXPORT_METHOD(setColumn:(NSDictionary *)data) {
   [self preparePrintData];
-  NSInteger height = TXT_DEFAULTHEIGHT;
-  NSInteger width = TXT_DEFAULTWIDTH;
   
+  NSInteger width = TXT_DEFAULTWIDTH;
   if ([data objectForKey:@"width"]) {
     width = [self getTextWidth:data[@"width"]];
   }
   
+  NSInteger height = TXT_DEFAULTHEIGHT;
   if ([data objectForKey:@"height"]) {
     height = [self getTextHeight:data[@"height"]];
   }
   
+  TableAlignType tableAlign = FIRST_LEFT_ALIGN;
+  if ([data objectForKey:@"tableAlign"]) {
+    tableAlign = [self getTableALign:data[@"tableAlign"]];
+  }
+  
+  NSInteger isBold = 0;
+  if ([data objectForKey:@"bold"]) {
+    isBold = [self getBoldValue:data[@"bold"]];
+  }
+  
   [dataM appendData:[POSCommand setTextSize:width height:height]];
-  [dataM appendData:[PTable addAutoTableH:data[@"column"] titleLength:data[@"columnWidth"] align:FIRST_LEFT_ALIGN]];
+  [dataM appendData:[POSCommand selectOrCancleBoldModel:isBold]];
+  [dataM appendData:[PTable addAutoTableH:data[@"column"] titleLength:data[@"columnWidth"] align:tableAlign]];
 }
 
 RCT_EXPORT_METHOD(printWithHost:(NSString *)host
@@ -283,6 +297,19 @@ RCT_EXPORT_METHOD(stopScan) {
       return POS_ALIGNMENT_RIGHT;
     default:
       return POS_ALIGNMENT_LEFT;
+  }
+}
+
+- (TableAlignType)getTableALign:(NSNumber *)tableAlign{
+  switch([tableAlign integerValue]) {
+    case TABLE_ALIGN_ALL_LEFT:
+      return ALL_LEFT_ALIGN;
+    case TABLE_ALIGN_ALL_RIGHT:
+      return ALL_RIGHT_ALIGN;
+    case TABLE_ALIGN_FIRST_LEFT:
+      return FIRST_LEFT_ALIGN;
+    default:
+      return FIRST_LEFT_ALIGN;
   }
 }
 

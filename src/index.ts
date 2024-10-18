@@ -25,6 +25,9 @@ export enum NETWORK_PRINTER_COMMAND {
   ALIGN_LEFT = 3,
   ALIGN_CENTER = 4,
   ALIGN_RIGHT = 5,
+  TABLE_ALIGN_ALL_LEFT = 6,
+  TABLE_ALIGN_ALL_RIGHT = 7,
+  TABLE_ALIGN_FIRST_LEFT = 8,
 }
 
 enum PRINT_DATA_TYPE {
@@ -65,11 +68,18 @@ interface ISetBase64 {
   image: string;
 }
 
+type ColumAlignType =
+  | NETWORK_PRINTER_COMMAND.TABLE_ALIGN_ALL_LEFT
+  | NETWORK_PRINTER_COMMAND.TABLE_ALIGN_ALL_RIGHT
+  | NETWORK_PRINTER_COMMAND.TABLE_ALIGN_FIRST_LEFT;
+
 interface ISetColumn {
   column: string[];
   columnWidth: number[];
   width?: number;
   height?: number;
+  tableAlign?: ColumAlignType;
+  bold?: NETWORK_PRINTER_COMMAND.BOLD | NETWORK_PRINTER_COMMAND.UNBOLD;
 }
 
 interface IFoundPrinter {
