@@ -378,7 +378,7 @@ RCT_EXPORT_METHOD(stopScan) {
   
   if (isPrintFinish == YES) {
     // Define the delay in seconds (1s)
-    double delayInSeconds = 0.1;
+    double delayInSeconds = 0.2;
 
     // Create a dispatch time for the delay
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
