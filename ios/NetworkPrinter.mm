@@ -202,16 +202,18 @@ RCT_EXPORT_METHOD(stopScan) {
              resolver:(RCTPromiseResolveBlock)resolve
              rejecter:(RCTPromiseRejectBlock)reject {
   isPrintWithHost = YES;
+  isPrintFinish = NO;
+  printErrorData = nil;
+  isPrintSuccess = NO;
   printRejector = reject;
   printResolver = resolve;
   [_networkManager connectWithHost:host port:9100];
 }
 
 - (void)clearPrintData {
+  isPrintFinish = YES;
   isPrintWithHost = NO;
   dataM = nil;
-  printRejector = NULL;
-  printResolver = NULL;
   if ([_networkManager isConnect]) {
     [_networkManager disconnect];
   }
@@ -220,24 +222,22 @@ RCT_EXPORT_METHOD(stopScan) {
 - (void)sendPrintResolver:(NSDictionary *)params {
   if (printResolver != NULL) {
     printResolver(params);
-    [self clearPrintData];
+    printResolver = NULL;
   }
 }
 
 - (void)sendPrintRejector:(NSString *)type message:(NSString *)message error:(NSError *)error {
   if (printRejector != NULL) {
     printRejector(type, message, error);
-    [self clearPrintData];
+    printRejector = NULL;
   }
 }
 
 - (void)printWithPromise {
   [_networkManager writeCommandWithData:dataM writeCallBack:^(BOOL success, NSError *error) {
-    if (success) {
-      [self sendPrintResolver:@{@"status": @"success", @"message": @"print success"}];
-    } else {
-      [self sendPrintRejector:@"print-failure" message:@"failed to print, please check your printer" error:error];
-    }
+    [self clearPrintData];
+    self->isPrintSuccess = success;
+    self->printErrorData = error;
   }];
 }
 
@@ -374,6 +374,26 @@ RCT_EXPORT_METHOD(stopScan) {
   [self sendEvent:@{@"type": errorType, @"connected": @(NO), @"host": host, @"port": withPort, @"error": errorMessage, @"errorData": error ? error : [NSNull null]}];
   if (isPrintWithHost == YES) {
     [self sendPrintRejector:errorType message:errorMessage error:error];
+  }
+  
+  if (isPrintFinish == YES) {
+    // Define the delay in seconds (1s)
+    double delayInSeconds = 0.1;
+
+    // Create a dispatch time for the delay
+    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
+
+    // Use dispatch_after to add the delay
+    dispatch_after(popTime, dispatch_get_main_queue(), ^{
+      if (self->isPrintSuccess == YES) {
+          self->printRejector = NULL;
+          [self sendPrintResolver:@{@"status": @"success", @"message": @"print success"}];
+      } else {
+          self->printResolver = NULL;
+          [self sendPrintRejector:@"print-failure" message:@"failed to print, please check your printer" error:error];
+      }
+    });
+   
   }
 }
 

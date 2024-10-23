@@ -143,12 +143,20 @@ export const scanNetworkListener = (listener: (res: IFoundPrinter) => void) => {
   );
 };
 
+interface IRNNetworkPrinterCallback {
+  onStart?: () => void;
+  onDone?: () => void;
+  onError?: (error: IPrintError) => void;
+}
+
 class RNNetworkPrinter {
   host?: string;
   printData: IPrintData[] = [];
+  callback?: IRNNetworkPrinterCallback = undefined;
 
-  constructor(host: string) {
+  constructor(host: string, callback?: IRNNetworkPrinterCallback) {
     this.host = host;
+    this.callback = callback;
   }
 
   setDensity = (density: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) => {
@@ -183,7 +191,9 @@ class RNNetworkPrinter {
     }
 
     IS_PRINTING = true;
-
+    if (typeof this.callback?.onStart === 'function') {
+      this.callback.onStart();
+    }
     return this.doPrint();
   };
 
@@ -195,7 +205,9 @@ class RNNetworkPrinter {
     }
 
     IS_PRINTING = true;
-
+    if (typeof this.callback?.onStart === 'function') {
+      this.callback.onStart();
+    }
     return this.openCashWithHost();
   };
 
@@ -240,6 +252,9 @@ class RNNetworkPrinter {
     return new Promise((resolve, reject) => {
       NetworkPrinter.printWithHost(this.host)
         .then((res: any) => {
+          if (typeof this.callback?.onDone === 'function') {
+            this.callback.onDone();
+          }
           this.printData = [];
           handlePrintQueue();
           resolve(res);
@@ -252,6 +267,9 @@ class RNNetworkPrinter {
                 .catch(reject);
             }, 1000);
           } else {
+            if (typeof this.callback?.onError === 'function') {
+              this.callback.onError(err);
+            }
             this.printData = [];
             handlePrintQueue();
             reject(err);

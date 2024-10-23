@@ -15,6 +15,9 @@
   NSMutableData *dataM;
   
   BOOL isPrintWithHost;
+  BOOL isPrintFinish;
+  BOOL isPrintSuccess;
+  NSError *printErrorData;
   RCTPromiseResolveBlock printResolver;
   RCTPromiseRejectBlock printRejector;
 }
