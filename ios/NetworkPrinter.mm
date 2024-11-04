@@ -20,7 +20,6 @@ typedef NS_ENUM(NSInteger, NetworkPrinterCommand) {
 NSString * EVENT_NAME = @"NetworkPrinteEvent";
 NSString * SCAN_EVENT_NAME = @"PrinterFound";
 
-
 @implementation NetworkPrinter
 {
   bool hasListeners;
@@ -47,199 +46,204 @@ NSString * SCAN_EVENT_NAME = @"PrinterFound";
   return @[EVENT_NAME, SCAN_EVENT_NAME];
 }
 
-- (instancetype)init
-{
-  self = [super init];
-  if (self) {
-    _networkManager = [POSWIFIManager sharedInstance];
-    _networkManager.delegate = self;
-  }
-  return self;
-}
-
-- (void)dealloc
-{
-  [_networkManager removeDelegate:self];
-}
-
-RCT_EXPORT_METHOD(setTextData:(NSDictionary *)data) {
-  NSStringEncoding enc = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
-  [self preparePrintData];
-
-  if ([data isKindOfClass:[NSDictionary class]]) {
-    if ([data objectForKey:@"text"]) {
-      NSInteger height = TXT_DEFAULTHEIGHT;
-      NSInteger width = TXT_DEFAULTWIDTH;
-      
-      if ([data objectForKey:@"width"]) {
-        width = [self getTextWidth:data[@"width"]];
-      }
-      
-      if ([data objectForKey:@"height"]) {
-        height = [self getTextHeight:data[@"height"]];
-      }
-      
-      NSInteger align = POS_ALIGNMENT_LEFT;
-      if ([data objectForKey:@"align"]) {
-        align = [self getAlignType:data[@"align"]];
-      }
-      
-      NSInteger isBold = 0;
-      if ([data objectForKey:@"bold"]) {
-        isBold = [self getBoldValue:data[@"bold"]];
-      }
-      
-      [dataM appendData:[POSCommand selectOrCancleBoldModel:isBold]];
-      [dataM appendData:[POSCommand selectAlignment:align]];
-      [dataM appendData:[POSCommand setTextSize:width height:height]];
-      [dataM appendData:[data[@"text"] dataUsingEncoding:enc]];
-      [dataM appendData:[POSCommand printAndFeedLine]];
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        connectedPrinterList = [NSMutableArray array]; // Initialize the array
     }
-  }
+    return self;
 }
 
-RCT_EXPORT_METHOD(setBase64Image:(NSDictionary *)data) {
-  [self preparePrintData];
 
-  if ([data isKindOfClass:[NSDictionary class]]) {
-    if ([data objectForKey:@"image"]) {
-      
-      NSInteger align = POS_ALIGNMENT_LEFT;
-      if ([data objectForKey:@"align"]) {
-        align = [self getAlignType:data[@"align"]];
+RCT_EXPORT_METHOD(initWithHost:(NSString *)host) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    BOOL isExistPrinter = NO;
+    for (NPrinter *nPrinter in self->connectedPrinterList) {
+      if ([nPrinter.host isEqualToString:host]) {
+        isExistPrinter = YES;
       }
-      
-      NSString *result = [@"data:image/png;base64," stringByAppendingString:data[@"image"]];
-      NSURL *url = [NSURL URLWithString:result];
-      NSData *imageData = [NSData dataWithContentsOfURL:url];
-      UIImage *image = [UIImage imageWithData:imageData];
-      [dataM appendData:[POSCommand selectAlignment:align]];
-      [dataM appendData:[POSCommand printRasteBmpWithM:RasterNolmorWH andImage:image andType:Dithering ]];
-      [dataM appendData:[POSCommand printAndFeedLine]];
     }
-  }
+    
+    if (!isExistPrinter) {
+      NPrinter *nPrinter = [[NPrinter alloc] initWithHost:host];
+      [self->connectedPrinterList addObject:nPrinter];
+    }
+  });
 }
 
-RCT_EXPORT_METHOD(addNewLine:(nonnull NSNumber *)count) {
-  [self preparePrintData];
-  [dataM appendData:[POSCommand printAndFeedForwardWhitN: [count integerValue]]];
+RCT_EXPORT_METHOD(removeHost:(NSString *)host) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+      NSInteger index = [self->connectedPrinterList indexOfObjectPassingTest:^BOOL(NPrinter *nPrinter, NSUInteger idx, BOOL *stop) {
+          return [nPrinter.host isEqualToString:host];
+      }];
+
+      if (index != NSNotFound) {
+          [self->connectedPrinterList removeObjectAtIndex:index];
+      }
+  });
 }
 
-RCT_EXPORT_METHOD(setColumn:(NSDictionary *)data) {
-  [self preparePrintData];
-  
-  NSInteger width = TXT_DEFAULTWIDTH;
-  if ([data objectForKey:@"width"]) {
-    width = [self getTextWidth:data[@"width"]];
-  }
-  
-  NSInteger height = TXT_DEFAULTHEIGHT;
-  if ([data objectForKey:@"height"]) {
-    height = [self getTextHeight:data[@"height"]];
-  }
-  
-  TableAlignType tableAlign = FIRST_LEFT_ALIGN;
-  if ([data objectForKey:@"tableAlign"]) {
-    tableAlign = [self getTableALign:data[@"tableAlign"]];
-  }
-  
-  NSInteger isBold = 0;
-  if ([data objectForKey:@"bold"]) {
-    isBold = [self getBoldValue:data[@"bold"]];
-  }
-  
-  [dataM appendData:[POSCommand setTextSize:width height:height]];
-  [dataM appendData:[POSCommand selectOrCancleBoldModel:isBold]];
-  [dataM appendData:[PTable addAutoTableH:data[@"column"] titleLength:data[@"columnWidth"] align:tableAlign]];
+RCT_EXPORT_METHOD(setTextData:(NSDictionary *)data host:(nonnull NSString *)host) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NSStringEncoding enc = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
+    
+    if ([data isKindOfClass:[NSDictionary class]]) {
+      if ([data objectForKey:@"text"]) {
+        NSInteger height = TXT_DEFAULTHEIGHT;
+        NSInteger width = TXT_DEFAULTWIDTH;
+        
+        if ([data objectForKey:@"width"]) {
+          width = [self getTextWidth:data[@"width"]];
+        }
+        
+        if ([data objectForKey:@"height"]) {
+          height = [self getTextHeight:data[@"height"]];
+        }
+        
+        NSInteger align = POS_ALIGNMENT_LEFT;
+        if ([data objectForKey:@"align"]) {
+          align = [self getAlignType:data[@"align"]];
+        }
+        
+        NSInteger isBold = 0;
+        if ([data objectForKey:@"bold"]) {
+          isBold = [self getBoldValue:data[@"bold"]];
+        }
+        
+        NPrinter *foundPrinter = [self getPrinterWithHost:host];
+        if (foundPrinter) {
+          [foundPrinter appendData:[data[@"text"] dataUsingEncoding:enc]];
+          [foundPrinter appendData:[POSCommand selectOrCancleBoldModel:isBold]];
+          [foundPrinter appendData:[POSCommand selectAlignment:align]];
+          [foundPrinter appendData:[POSCommand setTextSize:width height:height]];
+          [foundPrinter appendData:[POSCommand printAndFeedLine]];
+        }
+      }
+    }
+  });
+}
+
+RCT_EXPORT_METHOD(setBase64Image:(NSDictionary *)data host:(nonnull NSString *)host) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if ([data isKindOfClass:[NSDictionary class]]) {
+      if ([data objectForKey:@"image"]) {
+        
+        NSInteger align = POS_ALIGNMENT_LEFT;
+        if ([data objectForKey:@"align"]) {
+          align = [self getAlignType:data[@"align"]];
+        }
+        
+        NSString *result = [@"data:image/png;base64," stringByAppendingString:data[@"image"]];
+        NSURL *url = [NSURL URLWithString:result];
+        NSData *imageData = [NSData dataWithContentsOfURL:url];
+        UIImage *image = [UIImage imageWithData:imageData];
+        
+        NPrinter *foundPrinter = [self getPrinterWithHost:host];
+        if (foundPrinter) {
+          [foundPrinter appendData:[POSCommand selectAlignment:align]];
+          [foundPrinter appendData:[POSCommand printRasteBmpWithM:RasterNolmorWH andImage:image andType:Dithering ]];
+          [foundPrinter appendData:[POSCommand printAndFeedLine]];
+        }
+      }
+    }
+  });
+}
+
+RCT_EXPORT_METHOD(addNewLine:(nonnull NSNumber *)count host:(nonnull NSString *)host) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NPrinter *foundPrinter = [self getPrinterWithHost:host];
+    if (foundPrinter) {
+      [foundPrinter appendData:[POSCommand printAndFeedForwardWhitN: [count integerValue]]];
+    }
+  });
+}
+
+RCT_EXPORT_METHOD(setColumn:(NSDictionary *)data host:(nonnull NSString *)host) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NSInteger width = TXT_DEFAULTWIDTH;
+    if ([data objectForKey:@"width"]) {
+      width = [self getTextWidth:data[@"width"]];
+    }
+    
+    NSInteger height = TXT_DEFAULTHEIGHT;
+    if ([data objectForKey:@"height"]) {
+      height = [self getTextHeight:data[@"height"]];
+    }
+    
+    TableAlignType tableAlign = FIRST_LEFT_ALIGN;
+    if ([data objectForKey:@"tableAlign"]) {
+      tableAlign = [self getTableALign:data[@"tableAlign"]];
+    }
+    
+    NSInteger isBold = 0;
+    if ([data objectForKey:@"bold"]) {
+      isBold = [self getBoldValue:data[@"bold"]];
+    }
+    
+    NPrinter *foundPrinter = [self getPrinterWithHost:host];
+    if (foundPrinter) {
+      [foundPrinter appendData:[POSCommand setTextSize:width height:height]];
+      [foundPrinter appendData:[POSCommand selectOrCancleBoldModel:isBold]];
+      [foundPrinter appendData:[PTable addAutoTableH:data[@"column"] titleLength:data[@"columnWidth"] align:tableAlign]];
+    }
+  });
 }
 
 RCT_EXPORT_METHOD(printWithHost:(NSString *)host
-                  resolver:(RCTPromiseResolveBlock)resolve 
+                  resolver:(RCTPromiseResolveBlock)resolve
                   rejector:(RCTPromiseRejectBlock)reject) {
-  [self preparePrintData];
-  [dataM appendData:[POSCommand printAndFeedForwardWhitN:6]];
-  [dataM appendData:[POSCommand selectCutPageModelAndCutpage:1]];
-  [self printWithHost:host resolver:resolve rejecter:reject];
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NPrinter *foundPrinter = [self getPrinterWithHost:host];
+    if (foundPrinter) {
+      [foundPrinter appendData:[POSCommand printAndFeedForwardWhitN:6]];
+      [foundPrinter appendData:[POSCommand selectCutPageModelAndCutpage:1]];
+      [foundPrinter addPromise:resolve rejector:reject];
+      [foundPrinter print];
+    }
+  });
 }
 
 RCT_EXPORT_METHOD(openCashWithHost:(NSString *)host
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejector:(RCTPromiseRejectBlock)reject) {
-  [self preparePrintData];
-  [dataM appendData:[POSCommand creatCashBoxContorPulseWithM:0 andT1:30 andT2:255]];
-  [self printWithHost:host resolver:resolve rejecter:reject];
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NPrinter *foundPrinter = [self getPrinterWithHost:host];
+    if (foundPrinter) {
+      [foundPrinter appendData:[POSCommand creatCashBoxContorPulseWithM:0 andT1:30 andT2:255]];
+      [foundPrinter addPromise:resolve rejector:reject];
+      [foundPrinter print];
+    }
+  });
 }
 
-RCT_EXPORT_METHOD(setDensity:(nonnull NSNumber *)density) {
-  [self preparePrintData];
-  [dataM appendData:[POSCommand setDensity:[density integerValue]]];
+RCT_EXPORT_METHOD(setDensity:(nonnull NSNumber *)density host:(nonnull NSString *)host) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NPrinter *foundPrinter = [self getPrinterWithHost:host];
+    if (foundPrinter) {
+      [foundPrinter appendData:[POSCommand setDensity:[density integerValue]]];
+    }
+  });
 }
 
 RCT_EXPORT_METHOD(scanNetwork) {
-  if ([[POSWIFIManager sharedInstance] createUdpSocket]) {
-    [[POSWIFIManager sharedInstance] sendFindCmd:^(PrinterProfile *printer) {
-      if (self->hasListeners) {
-        [self sendEventWithName:SCAN_EVENT_NAME body:@{@"ip": [printer getIPString], @"gateway": [printer getGatewayString]}];
-      }
-    }];
-  };
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if ([[POSWIFIManager sharedInstance] createUdpSocket]) {
+      [[POSWIFIManager sharedInstance] sendFindCmd:^(PrinterProfile *printer) {
+        if (self->hasListeners) {
+          [self sendEventWithName:SCAN_EVENT_NAME body:@{@"ip": [printer getIPString], @"gateway": [printer getGatewayString]}];
+        }
+      }];
+    };
+  });
 }
 
-
 RCT_EXPORT_METHOD(stopScan) {
-  [[POSWIFIManager sharedInstance] closeUdpSocket];
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [[POSWIFIManager sharedInstance] closeUdpSocket];
+  });
 }
 
 #pragma mark - Method
-
--(void)preparePrintData {
-  if (dataM == nil) {
-    dataM = [NSMutableData dataWithData:[POSCommand initializePrinter]];
-  }
-}
-
-- (void)printWithHost:(NSString *)host
-             resolver:(RCTPromiseResolveBlock)resolve
-             rejecter:(RCTPromiseRejectBlock)reject {
-  isPrintWithHost = YES;
-  isPrintFinish = NO;
-  printErrorData = nil;
-  isPrintSuccess = NO;
-  printRejector = reject;
-  printResolver = resolve;
-  [_networkManager connectWithHost:host port:9100];
-}
-
-- (void)clearPrintData {
-  isPrintFinish = YES;
-  isPrintWithHost = NO;
-  dataM = nil;
-  if ([_networkManager isConnect]) {
-    [_networkManager disconnect];
-  }
-}
-
-- (void)sendPrintResolver:(NSDictionary *)params {
-  if (printResolver != NULL) {
-    printResolver(params);
-    printResolver = NULL;
-  }
-}
-
-- (void)sendPrintRejector:(NSString *)type message:(NSString *)message error:(NSError *)error {
-  if (printRejector != NULL) {
-    printRejector(type, message, error);
-    printRejector = NULL;
-  }
-}
-
-- (void)printWithPromise {
-  [_networkManager writeCommandWithData:dataM writeCallBack:^(BOOL success, NSError *error) {
-    [self clearPrintData];
-    self->isPrintSuccess = success;
-    self->printErrorData = error;
-  }];
-}
 
 - (NSInteger)getTextWidth:(NSNumber *)width{
   switch([width integerValue]) {
@@ -330,81 +334,23 @@ RCT_EXPORT_METHOD(stopScan) {
   }
 }
 
-
-#pragma mark - POSWIFIManagerDelegate
-
-//connected success
-- (void)POSwifiConnectedToHost:(NSString *)host port:(UInt16)port {
-  NSNumber *withPort = [NSNumber numberWithUnsignedShort:port];
-  NSDictionary *body = @{@"type": @"connection", @"connected": @(YES), @"host": host, @"port": withPort};
-  [self sendEvent:body];
-  if (isPrintWithHost == YES) {
-    [self printWithPromise];
-  }
-}
-
-//disconnected
-- (void)POSwifiDisconnectWithError:(NSError *)error {
-  NSString *host = [_networkManager hostStr];
-  NSNumber *withPort =  [NSNumber numberWithUnsignedShort:[_networkManager port]];
+- (NPrinter *)getPrinterWithHost:(NSString *)host {
+    // Ensure that the host parameter is not nil
+    if (host == nil) {
+        return nil;
+    }
   
-  NSString *errorType = @"disconected";
-  NSString *errorMessage = @"connection disconected";
-
-  if (error) {
-    switch(error.code) {
-      case 3: {
-        errorType = @"timeout";
-        errorMessage = @"connection timeout, host might be busy";
-        break;
-      }
-      case 64: {
-        errorType = @"invalid_host";
-        errorMessage = @"could not connect to host, check your host IP";
-        break;
-      }
-      case 61: {
-        errorType = @"connection_refused";
-        errorMessage = @"could not connect to host, check your host IP";
+    // Iterate over connectedPrinterList to find the printer with the matching host
+    for (NPrinter *nPrinter in connectedPrinterList) {
+      if ([nPrinter.host isEqualToString:host]) {
+        return nPrinter; // Return the printer if the host matches
         break;
       }
     }
-  }
-  
-  [self sendEvent:@{@"type": errorType, @"connected": @(NO), @"host": host, @"port": withPort, @"error": errorMessage, @"errorData": error ? error : [NSNull null]}];
-  if (isPrintWithHost == YES) {
-    [self sendPrintRejector:errorType message:errorMessage error:error];
-  }
-  
-  if (isPrintFinish == YES) {
-    // Define the delay in seconds (1s)
-    double delayInSeconds = 0.2;
 
-    // Create a dispatch time for the delay
-    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
-
-    // Use dispatch_after to add the delay
-    dispatch_after(popTime, dispatch_get_main_queue(), ^{
-      if (self->isPrintSuccess == YES) {
-          self->printRejector = NULL;
-          [self sendPrintResolver:@{@"status": @"success", @"message": @"print success"}];
-      } else {
-          self->printResolver = NULL;
-          [self sendPrintRejector:@"print-failure" message:@"failed to print, please check your printer" error:error];
-      }
-    });
-   
-  }
+    // Return nil if no matching printer is found
+    return nil;
 }
-
-- (void)POSwifiWriteValueWithTag:(long)tag {
-//  NSLog(@"WRITE VALUE %li", tag);
-}
-
-- (void)POSwifiReceiveValueForData:(NSData *)data {
-//  NSLog(@"RECEIVE VALUE %@", data);
-}
-
 
 RCT_EXPORT_MODULE();
 

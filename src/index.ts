@@ -4,19 +4,23 @@ const NetworkPrinter = NativeModules.NetworkPrinter;
 const NetworkPrinterEventEmitter = new NativeEventEmitter(NetworkPrinter);
 
 interface IQueue {
+  host: string;
   done: (value?: unknown) => void;
 }
 let PRINT_QUEUE: IQueue[] = [];
 
-let IS_PRINTING = false;
+let PRINTING_HOSTS: Set<string> = new Set();
 
-const handlePrintQueue = () => {
-  IS_PRINTING = false;
-
-  if (PRINT_QUEUE.length > 0) {
-    const queue = PRINT_QUEUE.shift();
-    queue?.done();
-  }
+const handlePrintQueue = (host: string) => {
+  NetworkPrinter.removeHost(host);
+  PRINTING_HOSTS.delete(host);
+  PRINT_QUEUE = PRINT_QUEUE.filter((val) => {
+    if (val.host === host) {
+      val.done();
+      return false;
+    }
+    return true;
+  });
 };
 
 export enum NETWORK_PRINTER_COMMAND {
@@ -40,7 +44,7 @@ enum PRINT_DATA_TYPE {
 }
 
 const NETWORK_PRINTER_EVENT = {
-  PRINTER_EVENT: 'NetworkPrinteEvent',
+  PRINTER_EVENT: 'NetworkPrinterEvent',
   SCAN_EVENT: 'PrinterFound',
 };
 
@@ -101,11 +105,11 @@ interface IPrintError {
   message: string;
 }
 
-const MAX_RETRIES = 20;
+const MAX_RETRIES = 60;
 
 export const scanNetwork = () => {
   if (Platform.OS === 'android') {
-    console.warn('Android nit implemented yet');
+    console.warn('Android not implemented yet');
     return;
   }
   NetworkPrinter.scanNetwork();
@@ -113,7 +117,7 @@ export const scanNetwork = () => {
 
 export const stopScanNetwork = () => {
   if (Platform.OS === 'android') {
-    console.warn('Android nit implemented yet');
+    console.warn('Android not implemented yet');
     return;
   }
   NetworkPrinter.stopScan();
@@ -123,7 +127,7 @@ export const printerEventListener = (
   listener: (res: IPrinterEvent) => void
 ) => {
   if (Platform.OS === 'android') {
-    console.warn('Android nit implemented yet');
+    console.warn('Android not implemented yet');
     return {};
   }
   return NetworkPrinterEventEmitter.addListener(
@@ -134,7 +138,7 @@ export const printerEventListener = (
 
 export const scanNetworkListener = (listener: (res: IFoundPrinter) => void) => {
   if (Platform.OS === 'android') {
-    console.warn('Android nit implemented yet');
+    console.warn('Android not implemented yet');
     return {};
   }
   return NetworkPrinterEventEmitter.addListener(
@@ -150,13 +154,14 @@ interface IRNNetworkPrinterCallback {
 }
 
 class RNNetworkPrinter {
-  host?: string;
+  host: string;
   printData: IPrintData[] = [];
   callback?: IRNNetworkPrinterCallback = undefined;
 
   constructor(host: string, callback?: IRNNetworkPrinterCallback) {
     this.host = host;
     this.callback = callback;
+    NetworkPrinter.initWithHost(host);
   }
 
   setDensity = (density: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) => {
@@ -184,13 +189,13 @@ class RNNetworkPrinter {
   };
 
   print = async () => {
-    if (IS_PRINTING) {
+    if (PRINTING_HOSTS.has(this.host)) {
       await new Promise((resolve) => {
-        PRINT_QUEUE.push({ done: resolve });
+        PRINT_QUEUE.push({ host: this.host, done: resolve });
       });
     }
 
-    IS_PRINTING = true;
+    PRINTING_HOSTS.add(this.host);
     if (typeof this.callback?.onStart === 'function') {
       this.callback.onStart();
     }
@@ -198,13 +203,13 @@ class RNNetworkPrinter {
   };
 
   openCashDrawer = async () => {
-    if (IS_PRINTING) {
+    if (PRINTING_HOSTS.has(this.host)) {
       await new Promise((resolve) => {
-        PRINT_QUEUE.push({ done: resolve });
+        PRINT_QUEUE.push({ host: this.host, done: resolve });
       });
     }
 
-    IS_PRINTING = true;
+    PRINTING_HOSTS.add(this.host);
     if (typeof this.callback?.onStart === 'function') {
       this.callback.onStart();
     }
@@ -216,27 +221,27 @@ class RNNetworkPrinter {
       const data = this.printData[i];
       switch (data?.type) {
         case PRINT_DATA_TYPE.density: {
-          NetworkPrinter.setDensity(data.value);
+          NetworkPrinter.setDensity(data.value, this.host);
           break;
         }
         case PRINT_DATA_TYPE.base64: {
-          NetworkPrinter.setBase64Image(data.value);
+          NetworkPrinter.setBase64Image(data.value, this.host);
           break;
         }
         case PRINT_DATA_TYPE.column: {
-          NetworkPrinter.setColumn(data.value);
+          NetworkPrinter.setColumn(data.value, this.host);
           break;
         }
         case PRINT_DATA_TYPE.newline: {
-          NetworkPrinter.addNewLine(data.value);
+          NetworkPrinter.addNewLine(data.value, this.host);
           break;
         }
         case PRINT_DATA_TYPE.raw: {
-          NetworkPrinter.setRawData(data.value);
+          NetworkPrinter.setRawData(data.value, this.host);
           break;
         }
         case PRINT_DATA_TYPE.text: {
-          NetworkPrinter.setTextData(data.value);
+          NetworkPrinter.setTextData(data.value, this.host);
           break;
         }
         default: {
@@ -256,8 +261,8 @@ class RNNetworkPrinter {
             this.callback.onDone();
           }
           this.printData = [];
-          handlePrintQueue();
           resolve(res);
+          handlePrintQueue(this.host);
         })
         .catch((err: IPrintError) => {
           if (err.code === 'timeout' && retryCount < MAX_RETRIES) {
@@ -271,8 +276,8 @@ class RNNetworkPrinter {
               this.callback.onError(err);
             }
             this.printData = [];
-            handlePrintQueue();
             reject(err);
+            handlePrintQueue(this.host);
           }
         });
     });
@@ -282,7 +287,7 @@ class RNNetworkPrinter {
     return new Promise((resolve, reject) => {
       NetworkPrinter.openCashWithHost(this.host)
         .then((res: any) => {
-          handlePrintQueue();
+          handlePrintQueue(this.host);
           resolve(res);
         })
         .catch((err: IPrintError) => {
@@ -293,7 +298,7 @@ class RNNetworkPrinter {
                 .catch(reject);
             }, 1000);
           } else {
-            handlePrintQueue();
+            handlePrintQueue(this.host);
             reject(err);
           }
         });

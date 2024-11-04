@@ -8,18 +8,12 @@
 #import <React/RCTBridgeModule.h>
 #import <React/RCTEventEmitter.h>
 #import "POSPrinterSDK.h"
+#import "WIFIConnecter.h"
 #import "PTable.h"
+#import "NPrinter.h"
 
-@interface NetworkPrinter : RCTEventEmitter <POSWIFIManagerDelegate> {
-  POSWIFIManager *_networkManager;
-  NSMutableData *dataM;
-  
-  BOOL isPrintWithHost;
-  BOOL isPrintFinish;
-  BOOL isPrintSuccess;
-  NSError *printErrorData;
-  RCTPromiseResolveBlock printResolver;
-  RCTPromiseRejectBlock printRejector;
+@interface NetworkPrinter : RCTEventEmitter {
+  NSMutableArray<NPrinter *> *connectedPrinterList;
 }
 
 @end
