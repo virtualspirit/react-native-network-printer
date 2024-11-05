@@ -112,10 +112,10 @@ RCT_EXPORT_METHOD(setTextData:(NSDictionary *)data host:(nonnull NSString *)host
         
         NPrinter *foundPrinter = [self getPrinterWithHost:host];
         if (foundPrinter) {
-          [foundPrinter appendData:[data[@"text"] dataUsingEncoding:enc]];
           [foundPrinter appendData:[POSCommand selectOrCancleBoldModel:isBold]];
           [foundPrinter appendData:[POSCommand selectAlignment:align]];
           [foundPrinter appendData:[POSCommand setTextSize:width height:height]];
+          [foundPrinter appendData:[data[@"text"] dataUsingEncoding:enc]];
           [foundPrinter appendData:[POSCommand printAndFeedLine]];
         }
       }
