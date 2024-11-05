@@ -35,12 +35,14 @@
 }
 
 - (void)disconnect {
-  BOOL status = [_printerConnecter printerCheckWithMac];
-  
-  if (status) {
-    [_printerConnecter disconnect];
-  }
-  self->_printData = [NSMutableData dataWithData:[POSCommand initializePrinter]];
+  dispatch_async(dispatch_get_main_queue(), ^{
+    BOOL status = [self->_printerConnecter printerCheckWithMac];
+    
+    if (status) {
+      [self->_printerConnecter disconnect];
+    }
+    self->_printData = [NSMutableData dataWithData:[POSCommand initializePrinter]];
+  });
 }
 
 - (void)print {
@@ -72,13 +74,19 @@
 # pragma WIFIConnecterDelegate
 - (void)wifiPOSConnectedToHost:(NSString *)ip port:(UInt16)port mac:(NSString *)mac {
   [_printerConnecter writeCommandWithData:_printData writeCallBack:^(BOOL success, NSError *error) {
-    [self disconnect];
+    dispatch_time_t delaydisconect = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC));
+    dispatch_after(delaydisconect, dispatch_get_main_queue(), ^{
+      [self disconnect];
+    });
     
-     if (success) {
-         [self sendPrintResolver:@{@"status": @"success", @"message": @"print success"}];
-     } else {
-         [self sendPrintRejector:@"print-failure" message:@"failed to print, please check your printer" error:error];
-     }
+    dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC));
+    dispatch_after(delay, dispatch_get_main_queue(), ^{
+        if (success) {
+            [self sendPrintResolver:@{@"status": @"success", @"message": @"print success"}];
+        } else {
+            [self sendPrintRejector:@"print-failure" message:@"failed to print, please check your printer" error:error];
+        }
+    });
   }];
 }
 

@@ -12,7 +12,6 @@ let PRINT_QUEUE: IQueue[] = [];
 let PRINTING_HOSTS: Set<string> = new Set();
 
 const handlePrintQueue = (host: string) => {
-  NetworkPrinter.removeHost(host);
   PRINTING_HOSTS.delete(host);
   PRINT_QUEUE = PRINT_QUEUE.filter((val) => {
     if (val.host === host) {
@@ -199,6 +198,7 @@ class RNNetworkPrinter {
     if (typeof this.callback?.onStart === 'function') {
       this.callback.onStart();
     }
+
     return this.doPrint();
   };
 
