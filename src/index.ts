@@ -13,13 +13,11 @@ let PRINTING_HOSTS: Set<string> = new Set();
 
 const handlePrintQueue = (host: string) => {
   PRINTING_HOSTS.delete(host);
-  PRINT_QUEUE = PRINT_QUEUE.filter((val) => {
-    if (val.host === host) {
-      val.done();
-      return false;
-    }
-    return true;
-  });
+  const index = PRINT_QUEUE.findIndex((val) => val.host === host);
+  if (index !== -1) {
+    PRINT_QUEUE[index]?.done();
+    PRINT_QUEUE.splice(index, 1)[0];
+  }
 };
 
 export enum NETWORK_PRINTER_COMMAND {
@@ -104,7 +102,7 @@ interface IPrintError {
   message: string;
 }
 
-const MAX_RETRIES = 60;
+const MAX_RETRIES = 10;
 
 export const scanNetwork = () => {
   if (Platform.OS === 'android') {
@@ -160,7 +158,6 @@ class RNNetworkPrinter {
   constructor(host: string, callback?: IRNNetworkPrinterCallback) {
     this.host = host;
     this.callback = callback;
-    NetworkPrinter.initWithHost(host);
   }
 
   setDensity = (density: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) => {
@@ -199,7 +196,7 @@ class RNNetworkPrinter {
       this.callback.onStart();
     }
 
-    return this.doPrint();
+    return this.printWithHost();
   };
 
   openCashDrawer = async () => {
@@ -213,10 +210,13 @@ class RNNetworkPrinter {
     if (typeof this.callback?.onStart === 'function') {
       this.callback.onStart();
     }
+
     return this.openCashWithHost();
   };
 
-  private doPrint = async () => {
+  private printWithHost = (retryCount = 0) => {
+    NetworkPrinter.initWithHost(this.host);
+
     for (let i = 0; i < this.printData.length; i++) {
       const data = this.printData[i];
       switch (data?.type) {
@@ -250,10 +250,6 @@ class RNNetworkPrinter {
       }
     }
 
-    return this.printWithHost();
-  };
-
-  private printWithHost = (retryCount = 0) => {
     return new Promise((resolve, reject) => {
       NetworkPrinter.printWithHost(this.host)
         .then((res: any) => {
@@ -265,7 +261,7 @@ class RNNetworkPrinter {
           handlePrintQueue(this.host);
         })
         .catch((err: IPrintError) => {
-          if (err.code === 'timeout' && retryCount < MAX_RETRIES) {
+          if (retryCount < MAX_RETRIES) {
             setTimeout(() => {
               this.printWithHost(retryCount + 1)
                 .then(resolve)
@@ -284,6 +280,8 @@ class RNNetworkPrinter {
   };
 
   private openCashWithHost = (retryCount = 0) => {
+    NetworkPrinter.initWithHost(this.host);
+
     return new Promise((resolve, reject) => {
       NetworkPrinter.openCashWithHost(this.host)
         .then((res: any) => {
@@ -291,15 +289,19 @@ class RNNetworkPrinter {
           resolve(res);
         })
         .catch((err: IPrintError) => {
-          if (err.code === 'timeout' && retryCount < MAX_RETRIES) {
+          if (retryCount < MAX_RETRIES) {
             setTimeout(() => {
               this.openCashWithHost(retryCount + 1)
                 .then(resolve)
                 .catch(reject);
             }, 1000);
           } else {
-            handlePrintQueue(this.host);
+            if (typeof this.callback?.onError === 'function') {
+              this.callback.onError(err);
+            }
+            this.printData = [];
             reject(err);
+            handlePrintQueue(this.host);
           }
         });
     });

@@ -9,6 +9,9 @@
 
 @implementation NPrinter
 
+BOOL isPrintSuccess = NO;
+NSError *printError;
+
 // Initializer method
 - (instancetype)initWithHost:(NSString *)host {
     self = [super init];
@@ -41,7 +44,6 @@
     if (status) {
       [self->_printerConnecter disconnect];
     }
-    self->_printData = [NSMutableData dataWithData:[POSCommand initializePrinter]];
   });
 }
 
@@ -55,6 +57,8 @@
 }
 
 - (void)sendPrintResolver:(NSDictionary *)params {
+  _printData = [NSMutableData dataWithData:[POSCommand initializePrinter]];
+
   if (_printResolver) {
     _printRejector = NULL;
     _printResolver(params);
@@ -63,6 +67,8 @@
 }
 
 - (void)sendPrintRejector:(NSString *)type message:(NSString *)message error:(NSError *)error {
+  _printData = [NSMutableData dataWithData:[POSCommand initializePrinter]];
+
   if (_printRejector != NULL) {
     _printResolver = NULL;
     _printRejector(type, message, error);
@@ -73,19 +79,14 @@
 
 # pragma WIFIConnecterDelegate
 - (void)wifiPOSConnectedToHost:(NSString *)ip port:(UInt16)port mac:(NSString *)mac {
+  isPrintSuccess = NO;
+  printError = NULL;
   [_printerConnecter writeCommandWithData:_printData writeCallBack:^(BOOL success, NSError *error) {
+    isPrintSuccess = YES;
+    printError = error;
     dispatch_time_t delaydisconect = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC));
     dispatch_after(delaydisconect, dispatch_get_main_queue(), ^{
       [self disconnect];
-    });
-    
-    dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC));
-    dispatch_after(delay, dispatch_get_main_queue(), ^{
-        if (success) {
-            [self sendPrintResolver:@{@"status": @"success", @"message": @"print success"}];
-        } else {
-            [self sendPrintRejector:@"print-failure" message:@"failed to print, please check your printer" error:error];
-        }
     });
   }];
 }
@@ -96,6 +97,8 @@
 
   if (error) {
     switch(error.code) {
+      case 8:
+      case 7:
       case 3: {
         errorType = @"timeout";
         errorMessage = @"connection timeout, host might be busy";
@@ -111,9 +114,22 @@
         errorMessage = @"could not connect to host, check your host IP";
         break;
       }
+      default: {
+        errorType = @"error";
+        errorMessage = [NSString stringWithFormat:@"%@ with code %ld", error.description, static_cast<long>(error.code)];
+        break;
+      }
     }
-    
     [self sendPrintRejector:errorType message:errorMessage error:error];
+  } else {
+    dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC));
+    dispatch_after(delay, dispatch_get_main_queue(), ^{
+      if (isPrintSuccess == YES) {
+        [self sendPrintResolver:@{@"status": @"success", @"message": @"print success"}];
+      } else {
+        [self sendPrintRejector:@"print-failure" message:[NSString stringWithFormat:@"%@ with code %ld", printError.description, static_cast<long>(printError.code)] error:printError];
+      }
+    });
   }
 }
 
