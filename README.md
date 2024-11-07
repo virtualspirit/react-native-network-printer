@@ -8,6 +8,20 @@ React Native Network Printer Liblary
 npm install @virtualspirit/react-native-network-printer
 ```
 
+## Android Extra Steps
+add this steps to android project `/android/app/build.gradle`
+```
+repositories {
+    flatDir {
+        dirs '../../node_modules/@virtualspirit/react-native-network-printer/android/libs'
+    }
+}
+
+dependencies {
+    implementation(name: 'printer-lib-3.2.0', ext: 'aar')  
+}
+```
+
 ## Usage
 
 

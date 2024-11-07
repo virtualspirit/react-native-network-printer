@@ -35,7 +35,6 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-extensions:2.2.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.1'
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation(name: 'printer-lib-3.2.0', ext: 'aar')
     implementation 'com.google.android.material:material:1.8.0'
     implementation 'com.github.tbruyelle:rxpermissions:0.12'
     implementation "io.reactivex.rxjava3:rxjava:3.1.5"
