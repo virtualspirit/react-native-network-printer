@@ -2,6 +2,18 @@
 
 React Native Network Printer Liblary
 
+## Before you install
+If you haven't installed any GitHub package before, please follow this steps.
+1. Adding your GitHub personal access token. [Github Doc](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry#authenticating-with-a-personal-access-token)
+2. Update your `.npmrc` file look like this
+
+```
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_PERSONAL_ACCESS_TOKEN
+@virtualspirit:registry=https://npm.pkg.github.com
+```
+
+
+
 ## Installation
 
 ```sh
