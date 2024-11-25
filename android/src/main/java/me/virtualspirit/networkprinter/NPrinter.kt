@@ -149,6 +149,7 @@ class NPrinter(val host: String, val sendEvent: (params: WritableMap?) -> Unit
 
   fun disconnect() {
     if (isConnected) {
+      isConnected = false
       printerConnecter.closeSync()
       val params = Arguments.createMap().apply {
         putString("type", "disconnected")
