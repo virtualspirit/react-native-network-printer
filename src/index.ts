@@ -88,13 +88,16 @@ interface IFoundPrinter {
   gateway: string;
 }
 
+export type IPrinterEventType =
+  | 'connected'
+  | 'disconnected'
+  | 'print-success'
+  | 'print-failure';
+
 export interface IPrinterEvent {
-  type: string;
-  connected: boolean;
+  type: IPrinterEventType;
   host: string;
-  port: string;
-  error?: string;
-  errorData?: any;
+  message: string;
 }
 
 interface IPrintError {

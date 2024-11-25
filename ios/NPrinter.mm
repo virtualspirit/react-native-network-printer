@@ -128,8 +128,8 @@ SendEventBlock sendEventBlock;
 
 - (void)wifiPOSDisconnectWithError:(NSError *)error mac:(NSString *)mac ip:(NSString *)ip {
   isConnected = NO;
-  NSString *errorType = @"disconected";
-  NSString *errorMessage = @"connection disconected";
+  NSString *errorType = @"disconnected";
+  NSString *errorMessage = @"connection disconnected";
 
   if (error) {
     switch(error.code) {
@@ -168,7 +168,7 @@ SendEventBlock sendEventBlock;
     });
   }
   
-  [self sendEvent:@{@"type": @"disconected", @"host": ip, @"message": error.description}];
+  [self sendEvent:@{@"type": @"disconnected", @"host": ip, @"message": error.description}];
 }
 
 - (void)wifiPOSWriteValueWithTag:(long)tag mac:(NSString *)mac ip:(NSString *)ip {

@@ -18,8 +18,8 @@ class NetworkPrinterModule(reactContext: ReactApplicationContext?) :
 
     private var hasPrinterListener = false
     private var hasScanListener = false
-    private var PRINTER_EVENT = "NetworkPrinteEvent"
-    private var SCAN_EVENT = "PrinterFound"
+    val PRINTER_EVENT = "NetworkPrinterEvent"
+    val SCAN_EVENT = "PrinterFound"
 
     override fun getName(): String {
         return "NetworkPrinter"
@@ -39,9 +39,27 @@ class NetworkPrinterModule(reactContext: ReactApplicationContext?) :
       }
 
       if (!isExistPrinter) {
-        val nPrinter: NPrinter = NPrinter(host)
+        val sendEvent: (WritableMap?) -> Unit = { params ->
+          if (hasPrinterListener) {
+            reactApplicationContext
+              .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+              .emit(PRINTER_EVENT, params)
+          }
+        }
+
+        val nPrinter: NPrinter = NPrinter(host, sendEvent)
         connectedPrinterList.add(nPrinter)
       }
+    }
+
+    @ReactMethod
+    fun connect(host: String) {
+      getPrinterWithHost(host)?.connect()
+    }
+
+    @ReactMethod
+    fun disconnect(host: String) {
+      getPrinterWithHost(host)?.disconnect()
     }
 
     @ReactMethod
@@ -146,9 +164,9 @@ class NetworkPrinterModule(reactContext: ReactApplicationContext?) :
     hasScanListener = false
   }
 
-  private fun sendEvent(reactContext: ReactContext, eventName: String, params: WritableMap?) {
+  public fun sendEvent(eventName: String, params: WritableMap?) {
     if ((eventName.equals(PRINTER_EVENT) && hasPrinterListener) || (eventName.equals(SCAN_EVENT) && hasScanListener)) {
-      reactContext
+      reactApplicationContext
         .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
         .emit(eventName, params)
     }
