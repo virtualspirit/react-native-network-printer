@@ -88,7 +88,7 @@ interface IFoundPrinter {
   gateway: string;
 }
 
-interface IPrinterEvent {
+export interface IPrinterEvent {
   type: string;
   connected: boolean;
   host: string;
@@ -159,6 +159,15 @@ class RNNetworkPrinter {
     this.host = host;
     this.callback = callback;
   }
+
+  connect = () => {
+    NetworkPrinter.initWithHost(this.host);
+    NetworkPrinter.connect(this.host);
+  };
+
+  disconnect = () => {
+    NetworkPrinter.disconnect(this.host);
+  };
 
   setDensity = (density: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) => {
     if (density >= 1 && density <= 8) {

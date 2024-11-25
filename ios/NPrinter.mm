@@ -11,17 +11,29 @@
 
 BOOL isPrintSuccess = NO;
 NSError *printError;
+BOOL isConnectAndPrint = NO;
+BOOL isConnected = NO;
+
+SendEventBlock sendEventBlock;
 
 // Initializer method
-- (instancetype)initWithHost:(NSString *)host {
+- (instancetype)initWithHost:(NSString *)host sendEventBlock:(SendEventBlock)block {
     self = [super init];
     if (self) {
       _host = host;
       _printData = [NSMutableData dataWithData:[POSCommand initializePrinter]];
       _printerConnecter = [[WIFIConnecter alloc] init];
       _printerConnecter.delegate = self;
+      
+      sendEventBlock = block;
     }
     return self;
+}
+
+- (void)sendEvent:(NSDictionary *)params {
+    if (sendEventBlock) {
+        sendEventBlock(params);
+    }
 }
 
 - (void)dealloc {
@@ -48,7 +60,31 @@ NSError *printError;
 }
 
 - (void)print {
-  [self connect];
+  if (isConnected) {
+    isConnectAndPrint = NO;
+    [self doPrint];
+  } else {
+    isConnectAndPrint = YES;
+    [self connect];
+  }
+}
+
+-(void)doPrint {
+  [_printerConnecter writeCommandWithData:_printData writeCallBack:^(BOOL success, NSError *error) {
+    isPrintSuccess = YES;
+    printError = error;
+    dispatch_time_t delaydisconect = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC));
+    dispatch_after(delaydisconect, dispatch_get_main_queue(), ^{
+      if (success) {
+        [self sendEvent:@{@"type": @"print-success", @"host": self.host, @"message": @"print success"}];
+      } else {
+        [self sendEvent:@{@"type": @"print-failure", @"host": self.host, @"message": error.description}];
+      }
+      if (isConnectAndPrint) {
+        [self disconnect];
+      }
+    });
+  }];
 }
 
 - (void)addPromise:(RCTPromiseResolveBlock)resolve rejector:(RCTPromiseRejectBlock)reject {
@@ -79,19 +115,19 @@ NSError *printError;
 
 # pragma WIFIConnecterDelegate
 - (void)wifiPOSConnectedToHost:(NSString *)ip port:(UInt16)port mac:(NSString *)mac {
+
+  isConnected = YES;
   isPrintSuccess = NO;
   printError = NULL;
-  [_printerConnecter writeCommandWithData:_printData writeCallBack:^(BOOL success, NSError *error) {
-    isPrintSuccess = YES;
-    printError = error;
-    dispatch_time_t delaydisconect = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC));
-    dispatch_after(delaydisconect, dispatch_get_main_queue(), ^{
-      [self disconnect];
-    });
-  }];
+  if (isConnectAndPrint) {
+    [self doPrint];
+  }
+  
+  [self sendEvent:@{@"type": @"connected", @"host": ip, @"message": @"success"}];
 }
 
 - (void)wifiPOSDisconnectWithError:(NSError *)error mac:(NSString *)mac ip:(NSString *)ip {
+  isConnected = NO;
   NSString *errorType = @"disconected";
   NSString *errorMessage = @"connection disconected";
 
@@ -131,6 +167,8 @@ NSError *printError;
       }
     });
   }
+  
+  [self sendEvent:@{@"type": @"disconected", @"host": ip, @"message": error.description}];
 }
 
 - (void)wifiPOSWriteValueWithTag:(long)tag mac:(NSString *)mac ip:(NSString *)ip {

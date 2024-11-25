@@ -19,8 +19,10 @@
 @property (nonatomic, strong) RCTPromiseResolveBlock printResolver;
 @property (nonatomic, strong) RCTPromiseRejectBlock printRejector;
 
+typedef void (^SendEventBlock)(NSDictionary *body);
+
 // Methods
-- (instancetype)initWithHost:(NSString *)host;
+- (instancetype)initWithHost:(NSString *)host sendEventBlock:(SendEventBlock)block;
 - (void)appendData:(NSData *)data;
 - (void)connect;
 - (void)disconnect;

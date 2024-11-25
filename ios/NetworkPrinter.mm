@@ -17,7 +17,7 @@ typedef NS_ENUM(NSInteger, NetworkPrinterCommand) {
   TABLE_ALIGN_FIRST_LEFT = 8,
 };
 
-NSString * EVENT_NAME = @"NetworkPrinteEvent";
+NSString * PRINTER_EVENT_NAME = @"NetworkPrinterEvent";
 NSString * SCAN_EVENT_NAME = @"PrinterFound";
 
 @implementation NetworkPrinter
@@ -43,7 +43,7 @@ NSString * SCAN_EVENT_NAME = @"PrinterFound";
 }
 
 - (NSArray<NSString *> *)supportedEvents {
-  return @[EVENT_NAME, SCAN_EVENT_NAME];
+  return @[PRINTER_EVENT_NAME, SCAN_EVENT_NAME];
 }
 
 - (instancetype)init {
@@ -65,8 +65,32 @@ RCT_EXPORT_METHOD(initWithHost:(NSString *)host) {
     }
     
     if (!isExistPrinter) {
-      NPrinter *nPrinter = [[NPrinter alloc] initWithHost:host];
+      SendEventBlock sendEventBlock = ^(NSDictionary *body) {
+        if (self->hasListeners) {
+          [self sendEventWithName:PRINTER_EVENT_NAME body:body];
+        }
+      };
+      
+      NPrinter *nPrinter = [[NPrinter alloc] initWithHost:host sendEventBlock:sendEventBlock];
       [self->connectedPrinterList addObject:nPrinter];
+    }
+  });
+}
+
+RCT_EXPORT_METHOD(connect:(NSString *)host) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NPrinter *foundPrinter = [self getPrinterWithHost:host];
+    if (foundPrinter) {
+      [foundPrinter connect];
+    }
+  });
+}
+
+RCT_EXPORT_METHOD(disconnect:(NSString *)host) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NPrinter *foundPrinter = [self getPrinterWithHost:host];
+    if (foundPrinter) {
+      [foundPrinter disconnect];
     }
   });
 }
@@ -330,7 +354,7 @@ RCT_EXPORT_METHOD(stopScan) {
 
 - (void) sendEvent:(NSDictionary *)body {
   if (hasListeners) {
-    [self sendEventWithName:EVENT_NAME body:body];
+    [self sendEventWithName:PRINTER_EVENT_NAME body:body];
   }
 }
 
