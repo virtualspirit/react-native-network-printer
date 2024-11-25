@@ -126,10 +126,6 @@ export const stopScanNetwork = () => {
 export const printerEventListener = (
   listener: (res: IPrinterEvent) => void
 ) => {
-  if (Platform.OS === 'android') {
-    console.warn('Android not implemented yet');
-    return {};
-  }
   return NetworkPrinterEventEmitter.addListener(
     NETWORK_PRINTER_EVENT.PRINTER_EVENT,
     listener
