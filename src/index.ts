@@ -88,6 +88,13 @@ interface IFoundPrinter {
   gateway: string;
 }
 
+export type PrintingStatusType =
+  | 'printing'
+  | 'printed'
+  | 'retry'
+  | 'queue'
+  | 'failure';
+
 export type IPrinterEventType =
   | 'connected'
   | 'disconnected'
@@ -147,6 +154,7 @@ interface IRNNetworkPrinterCallback {
   onStart?: () => void;
   onDone?: () => void;
   onError?: (error: IPrintError) => void;
+  onStatusChanged?: (status: PrintingStatusType) => void;
 }
 
 class RNNetworkPrinter {
@@ -194,6 +202,9 @@ class RNNetworkPrinter {
 
   print = async () => {
     if (PRINTING_HOSTS.has(this.host)) {
+      if (typeof this.callback?.onStatusChanged === 'function') {
+        this.callback?.onStatusChanged('queue');
+      }
       await new Promise((resolve) => {
         PRINT_QUEUE.push({ host: this.host, done: resolve });
       });
@@ -259,10 +270,16 @@ class RNNetworkPrinter {
     }
 
     return new Promise((resolve, reject) => {
+      if (typeof this.callback?.onStatusChanged === 'function') {
+        this.callback?.onStatusChanged('printing');
+      }
       NetworkPrinter.printWithHost(this.host)
         .then((res: any) => {
           if (typeof this.callback?.onDone === 'function') {
             this.callback.onDone();
+          }
+          if (typeof this.callback?.onStatusChanged === 'function') {
+            this.callback?.onStatusChanged('printed');
           }
           this.printData = [];
           resolve(res);
@@ -270,6 +287,9 @@ class RNNetworkPrinter {
         })
         .catch((err: IPrintError) => {
           if (retryCount < MAX_RETRIES) {
+            if (typeof this.callback?.onStatusChanged === 'function') {
+              this.callback?.onStatusChanged('retry');
+            }
             setTimeout(() => {
               this.printWithHost(retryCount + 1)
                 .then(resolve)
@@ -278,6 +298,9 @@ class RNNetworkPrinter {
           } else {
             if (typeof this.callback?.onError === 'function') {
               this.callback.onError(err);
+            }
+            if (typeof this.callback?.onStatusChanged === 'function') {
+              this.callback?.onStatusChanged('failure');
             }
             this.printData = [];
             reject(err);
