@@ -168,7 +168,7 @@ SendEventBlock sendEventBlock;
     });
   }
   
-  [self sendEvent:@{@"type": @"disconnected", @"host": ip, @"message": error.description}];
+  [self sendEvent:@{@"type": @"disconnected", @"host": ip, @"message": errorMessage}];
 }
 
 - (void)wifiPOSWriteValueWithTag:(long)tag mac:(NSString *)mac ip:(NSString *)ip {
